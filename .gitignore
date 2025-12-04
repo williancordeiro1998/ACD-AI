@@ -1,0 +1,10 @@
+# .gitignore
+.serverless/
+.venv/
+node_modules/
+__pycache__/
+*.zip
+.idea/
+.env
+.DS_Store
+package-lock.json

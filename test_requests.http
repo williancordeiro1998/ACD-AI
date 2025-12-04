@@ -1,0 +1,23 @@
+### Teste 1: Simulação de Ataque (SQL Injection)
+POST https://ojhdu0b34m.execute-api.us-east-1.amazonaws.com/dev/ingest
+Content-Type: application/json
+
+{
+  "source_ip": "45.22.19.11",
+  "user_agent": "Mozilla/5.0 (compatible; EvilBot/2.1)",
+  "request_uri": "/login?user=admin' OR '1'='1",
+  "method": "GET",
+  "timestamp": "2023-10-27T10:00:00Z"
+}
+
+### Teste 2: Tráfego Normal (Para comparar)
+POST https://ojhdu0b34m.execute-api.us-east-1.amazonaws.com/dev/ingest
+Content-Type: application/json
+
+{
+  "source_ip": "200.100.50.25",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+  "request_uri": "/home",
+  "method": "GET",
+  "timestamp": "2023-10-27T10:05:00Z"
+}

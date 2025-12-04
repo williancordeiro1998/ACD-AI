@@ -1,0 +1,77 @@
+service: acd-ai
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: us-east-1 # Ou sua região preferida (sa-east-1 é mais cara, cuidado)
+  memorySize: 256 # Suficiente para requests leves
+  timeout: 30
+  environment:
+    GOOGLE_API_KEY: ${ssm:/acd-ai/google-api-key} # Pega do AWS Parameter Store/Secrets
+    DYNAMODB_TABLE: ${self:service}-executions-${sls:stage}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+        - Effect: Allow
+          Action:
+            - states:StartExecution
+          Resource: "*"
+
+plugins:
+  - serverless-python-requirements
+  - serverless-step-functions
+
+functions:
+  ingress:
+    handler: src/handlers/ingress.handler
+    events:
+      - http:
+          path: ingest
+          method: post
+          cors: true
+
+  threatDetector:
+    handler: src/handlers/detector.handler
+    timeout: 60 # IA pode demorar um pouco
+
+  defenseExecutor:
+    handler: src/handlers/executor.handler
+
+stepFunctions:
+  stateMachines:
+    threatResponseMachine:
+      name: ACD-Workflow-${sls:stage}
+      definition:
+        StartAt: ThreatDetector
+        States:
+          ThreatDetector:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [threatDetector, Arn]
+            Next: DefenseExecutor # Simplificado para o MVP Day 1
+          DefenseExecutor:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [defenseExecutor, Arn]
+            End: true
+
+resources:
+  Resources:
+    ExecutionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+        AttributeDefinitions:
+          - AttributeName: task_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: task_id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST # Custo zero se parado
